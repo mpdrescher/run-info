@@ -12,10 +12,11 @@ use term::Attr;
 extern crate clap;
 use clap::{Arg, App};
 
+extern crate time;
+
 use std::io::prelude::*;
 use std::mem;
 use std::thread;
-use std::time;
 
 mod reader;
 use reader::MemInfo;
@@ -35,9 +36,14 @@ fn main()
 							.short("c")
 							.long("no-color")
 							.help("Switches to monochrome mode"))
+						.arg(Arg::with_name("simple")
+							.short("s")
+							.long("simple")
+							.help("One-line display for logging"))
 						.get_matches();
 	let delay_str = matches.value_of("delay").unwrap_or("1500").to_owned();
 	let color = matches.occurrences_of("no-color") == 0;
+	let simple = matches.occurrences_of("simple") != 0;
 	let mut valid_delay = true;
 	let delay = match delay_str.parse::<usize>()
 	{
@@ -46,11 +52,12 @@ fn main()
 	};
 	if valid_delay
 	{
-		main_loop(delay, color);
+		main_loop(delay, color, simple);
 	}
 }
 
-fn main_loop(delay: usize, color: bool)
+#[allow(unused_assignments)]
+fn main_loop(delay: usize, color: bool, simple: bool)
 {
 	println!("");
 	let mut term = term::stdout().expect("term is not available");
@@ -85,10 +92,40 @@ fn main_loop(delay: usize, color: bool)
 		cpuinfo_delta = CPUInfo::new(); //reset delta
 		CPUInfo::calculate_delta(&mut cpuinfo_delta, &cpuinfo_old, &cpuinfo_new); //calculate the difference
 
-		print(&mut term, color, &cpuinfo_delta, &meminfo);
+		if simple
+		{
+			print_simple(&mut term, color, &cpuinfo_delta, &meminfo);
+		}
+		else 
+		{
+			print(&mut term, color, &cpuinfo_delta, &meminfo);
+		}
 
-		thread::sleep(time::Duration::from_millis(delay as u64)); //wait until next update
+		thread::sleep(std::time::Duration::from_millis(delay as u64)); //wait until next update
 	}
+}
+
+//Printing
+
+fn print_simple(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, cpu: &CPUInfo, mem: &MemInfo)
+{
+	let time = time::now();
+	let timestamp = format!("{}m/{}d/{}y-{}h:{}m:{}s", time.tm_mon+1, time.tm_mday, time.tm_year, time.tm_hour, time.tm_min, time.tm_sec);
+	let cpuload_string = format_float(calc_cpu_load_percentage(&cpu.total_load));
+	let mem_string = format_gib(mem.total - mem.free - mem.cached);
+	let swap_string = format_gib(mem.swap_used);
+
+	let _ = write!(term, "{}\t\tCPU:", timestamp);
+	print_highlighted(term, color, format!("{} %", cpuload_string));
+	let _ = write!(term, "\t\tRAM: ");
+	print_highlighted(term, color, format!("{} Gib", mem_string));
+	if mem.swap_used != 0
+	{
+		let _ = write!(term, "\t\tSWAP: ");
+		print_highlighted(term, color, format!("{} Gib", swap_string));
+	}
+
+	let _ = writeln!(term, "");
 }
 
 fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, cpu: &CPUInfo, mem: &MemInfo)
@@ -192,15 +229,15 @@ fn print_progress_bar(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Se
 	let _ = write!(term, "]");
 }
 
-fn print_highlighted(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, enabled: bool, content: String)
+fn print_highlighted(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, content: String)
 {
-	colorize(term, enabled, color::CYAN);
-	attribute(term, enabled, Attr::Bold);
-	write!(term, "{}", content);
-	reset(term, enabled);
+	colorize(term, color, color::CYAN);
+	attribute(term, color, Attr::Bold);
+	let _ = write!(term, "{}", content);
+	reset(term, color);
 }
 
-fn print_header(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, enabled: bool, size: usize, name: String)
+fn print_header(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, size: usize, name: String)
 {
 	let halfsize = (size - name.len() - 2) / 2;
 	let extend_first = halfsize * 2 + name.len() + 2 != size; //catch rounding errors
@@ -212,10 +249,10 @@ fn print_header(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, e
 	{
 		let _ = write!(term, "=");
 	}
-	colorize(term, enabled, color::YELLOW);
-	attribute(term, enabled, Attr::Bold);
+	colorize(term, color, color::YELLOW);
+	attribute(term, color, Attr::Bold);
 	let _ = write!(term, " {} ", name);
-	reset(term, enabled);
+	reset(term, color);
 	for _ in 0..halfsize
 	{
 		let _ = write!(term, "=");
@@ -225,27 +262,27 @@ fn print_header(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, e
 
 //HELPER FUNCTIONS
 
-fn attribute(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, enabled: bool, attrib: Attr)
+fn attribute(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, attrib: Attr)
 {
-	if enabled
+	if color
 	{
 		let _ = term.attr(attrib);
 	}
 }
 
-fn reset(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, enabled: bool)
+fn reset(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool)
 {
-	if enabled
+	if color
 	{
 		let _ = term.reset();
 	}
 }
 
-fn colorize(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, enabled: bool, color: u16)
+fn colorize(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, color_code: u16)
 {
-	if enabled
+	if color
 	{
-		let _ = term.fg(color);
+		let _ = term.fg(color_code);
 	}
 }
 

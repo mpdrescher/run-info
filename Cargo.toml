@@ -1,8 +1,9 @@
 [package]
 name = "run-info"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Matthias Drescher <matthias_p_drescher@t-online.com>"]
 
 [dependencies]
 term = "0.4.4"
 clap = "2.11.0"
+time = "0.1.35"
