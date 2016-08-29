@@ -110,7 +110,7 @@ fn main_loop(delay: usize, color: bool, simple: bool)
 fn print_simple(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, cpu: &CPUInfo, mem: &MemInfo)
 {
 	let time = time::now();
-	let timestamp = format!("{}m/{}d/{}y-{}h:{}m:{}s", time.tm_mon+1, time.tm_mday, time.tm_year, time.tm_hour, time.tm_min, time.tm_sec);
+	let timestamp = format!("{}m/{}d/{}y-{}h:{}m:{}s", time.tm_mon+1, time.tm_mday, time.tm_year+1900, time.tm_hour, time.tm_min, time.tm_sec);
 	let cpuload_string = format_float(calc_cpu_load_percentage(&cpu.total_load));
 	let mem_string = format_gib(mem.total - mem.free - mem.cached);
 	let swap_string = format_gib(mem.swap_used);
