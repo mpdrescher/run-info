@@ -66,6 +66,12 @@ fn main_loop(delay: usize, color: bool, simple: bool)
 	let mut cpuinfo_new = CPUInfo::new();
 	let mut cpuinfo_delta = CPUInfo::new(); //The delta between the two time frames
 	let _ = cpuinfo_new.update();
+	
+	let mut cpu_graph: Vec<f64> = Vec::new();
+	for _ in 0..51
+	{
+		cpu_graph.push(0.0);
+	}
 
 	loop 
 	{
@@ -98,7 +104,7 @@ fn main_loop(delay: usize, color: bool, simple: bool)
 		}
 		else 
 		{
-			print(&mut term, color, &cpuinfo_delta, &meminfo);
+			print(&mut term, color, &cpuinfo_delta, &meminfo, &mut cpu_graph);
 		}
 
 		thread::sleep(std::time::Duration::from_millis(delay as u64)); //wait until next update
@@ -107,6 +113,7 @@ fn main_loop(delay: usize, color: bool, simple: bool)
 
 //Printing
 
+//a simpler version of print (-s flag)
 fn print_simple(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, cpu: &CPUInfo, mem: &MemInfo)
 {
 	let time = time::now();
@@ -128,9 +135,9 @@ fn print_simple(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send
 	let _ = writeln!(term, "");
 }
 
-fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, cpu: &CPUInfo, mem: &MemInfo)
+fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, cpu: &CPUInfo, mem: &MemInfo, graph: &mut Vec<f64>)
 {
-	let mut lines_printed = 13;
+	let mut lines_printed = 19;
 
 	//CPU
 
@@ -139,10 +146,10 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 	print_highlighted(term, color, format!("{}", cpu.processes));
 	if cpu.processes > 1
 	{
-		let _ = write!(term, " processes on ");	
+		let _ = write!(term, " active processes on ");	
 	}else 
 	{
-	   	let _ = write!(term, " process on ");
+	   	let _ = write!(term, " active process on ");
 	}
 	print_highlighted(term, color, format!("{}", cpu.cores));
 	let _ = writeln!(term, " cores      ");
@@ -151,6 +158,8 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 	//print bars
 	print_highlighted(term, color, String::from("TOTAL: "));
 	let total_percentage = calc_cpu_load_percentage(&cpu.total_load);
+	graph.push(total_percentage); //push new data
+	graph.remove(0); //dequeue old data
 	print_progress_bar(term, color, total_percentage, 40, color::RED);
 	print_highlighted(term, color, format!(" {} %   ", format_float(total_percentage)));
 	let _ = writeln!(term, "");
@@ -165,6 +174,40 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 		let _ = writeln!(term, "");
 		lines_printed += 1;
 		core_counter += 1;
+	}
+	let _ = writeln!(term, "");
+
+	//print graph
+	let graph_sizes = transform_to_graphsize(&graph);
+	for y in (0..5).rev()
+	{
+		let mut label = format!("{}%", y*25);
+		while label.len() < 5
+		{
+			label.push(' ');
+		}
+		label.push('|');
+		let _ = write!(term, "{}", label);
+		colorize(term, color, color::CYAN);
+		attribute(term, color, Attr::Bold);
+		for x in 0..51
+		{
+			let size = graph_sizes.get(x).unwrap();
+			if size < &(y*2)
+			{
+				let _ = write!(term, " ");
+			}
+			else if size < &(y*2 +1)
+			{
+				let _ = write!(term, ".");
+			}
+			else 
+			{
+			    let _ = write!(term, ":");
+			}
+		}
+		reset(term, color);
+		let _ = writeln!(term, "");
 	}
 	let _ = writeln!(term, "");
 
@@ -197,7 +240,6 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 	print_highlighted(term, color, format!(" {}% ", format_float(swap_use)));
 	let _ = write!(term, ")");
 	let _ = writeln!(term, "\n");
-
 
 
 	for _ in 0..lines_printed
@@ -317,4 +359,14 @@ fn calc_cpu_load_percentage(load: &CPULoad) -> f64
 		load_percentage = load.busy as f64 / (load.idle + load.busy) as f64;
 	}
 	load_percentage
+}
+
+fn transform_to_graphsize(graph_data: &Vec<f64>) -> Vec<usize>
+{
+	let mut retval = Vec::new();
+	for data in graph_data
+	{
+		retval.push((data * 10.0) as usize);
+	}
+	retval
 }
