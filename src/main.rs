@@ -14,13 +14,34 @@ use clap::{Arg, App};
 
 extern crate time;
 
-use std::io::prelude::*;
 use std::mem;
 use std::thread;
 
-mod reader;
-use reader::MemInfo;
-use reader::{CPUInfo, CPULoad};
+mod meminfo;
+use meminfo::MemInfo;
+
+mod cpuinfo;
+use cpuinfo::CPUInfo;
+
+mod printutils;
+use printutils::print_progress_bar as print_progress_bar;
+use printutils::print_highlighted as print_highlighted;
+use printutils::print_header as print_header;
+use printutils::attribute as attribute;
+use printutils::reset as reset;
+use printutils::colorize as colorize;
+use printutils::format_float as format_float;
+use printutils::format_gib as format_gib;
+use printutils::calc_cpu_load_percentage as calc_cpu_load_percentage;
+use printutils::transform_to_graphsize as transform_to_graphsize;
+
+//Holds CLAP arguments
+pub struct Settings
+{
+	delay: usize,
+	enable_color: bool,
+	log_mode: bool
+}
 
 fn main()
 {
@@ -36,28 +57,33 @@ fn main()
 							.short("c")
 							.long("no-color")
 							.help("Switches to monochrome mode"))
-						.arg(Arg::with_name("simple")
-							.short("s")
-							.long("simple")
+						.arg(Arg::with_name("log-mode")
+							.short("l")
+							.long("log")
 							.help("One-line display for logging"))
 						.get_matches();
 	let delay_str = matches.value_of("delay").unwrap_or("1500").to_owned();
-	let color = matches.occurrences_of("no-color") == 0;
-	let simple = matches.occurrences_of("simple") != 0;
+	let enable_color = matches.occurrences_of("no-color") == 0;
+	let log_mode = matches.occurrences_of("log-mode") != 0;
 	let mut valid_delay = true;
 	let delay = match delay_str.parse::<usize>()
 	{
 		Ok(v) => v,
 		Err(_) => {println!("Error: delay argument is not a number"); valid_delay = false; 0}
 	};
+	let settings = Settings{
+		delay: delay,
+		enable_color: enable_color,
+		log_mode: log_mode
+	};
 	if valid_delay
 	{
-		main_loop(delay, color, simple);
+		main_loop(settings);
 	}
 }
 
 #[allow(unused_assignments)]
-fn main_loop(delay: usize, color: bool, simple: bool)
+fn main_loop(settings: Settings)
 {
 	println!("");
 	let mut term = term::stdout().expect("term is not available");
@@ -98,23 +124,23 @@ fn main_loop(delay: usize, color: bool, simple: bool)
 		cpuinfo_delta = CPUInfo::new(); //reset delta
 		CPUInfo::calculate_delta(&mut cpuinfo_delta, &cpuinfo_old, &cpuinfo_new); //calculate the difference
 
-		if simple
+		if settings.log_mode
 		{
-			print_simple(&mut term, color, &cpuinfo_delta, &meminfo);
+			print_log_mode(&mut term, &settings, &cpuinfo_delta, &meminfo);
 		}
 		else 
 		{
-			print(&mut term, color, &cpuinfo_delta, &meminfo, &mut cpu_graph);
+			print(&mut term, &settings, &cpuinfo_delta, &meminfo, &mut cpu_graph);
 		}
 
-		thread::sleep(std::time::Duration::from_millis(delay as u64)); //wait until next update
+		thread::sleep(std::time::Duration::from_millis(settings.delay as u64)); //wait until next update
 	}
 }
 
 //Printing
 
 //a simpler version of print (-s flag)
-fn print_simple(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, cpu: &CPUInfo, mem: &MemInfo)
+fn print_log_mode(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, settings: &Settings, cpu: &CPUInfo, mem: &MemInfo)
 {
 	let time = time::now();
 	let timestamp = format!("{}m/{}d/{}y-{}h:{}m:{}s", time.tm_mon+1, time.tm_mday, time.tm_year+1900, time.tm_hour, time.tm_min, time.tm_sec);
@@ -123,27 +149,27 @@ fn print_simple(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send
 	let swap_string = format_gib(mem.swap_used);
 
 	let _ = write!(term, "{}\t\tCPU:", timestamp);
-	print_highlighted(term, color, format!("{} %", cpuload_string));
+	print_highlighted(term, &settings, format!("{} %", cpuload_string));
 	let _ = write!(term, "\t\tRAM: ");
-	print_highlighted(term, color, format!("{} Gib", mem_string));
+	print_highlighted(term, &settings, format!("{} Gib", mem_string));
 	if mem.swap_used != 0
 	{
 		let _ = write!(term, "\t\tSWAP: ");
-		print_highlighted(term, color, format!("{} Gib", swap_string));
+		print_highlighted(term, &settings, format!("{} Gib", swap_string));
 	}
 
 	let _ = writeln!(term, "");
 }
 
-fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, cpu: &CPUInfo, mem: &MemInfo, graph: &mut Vec<f64>)
+fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, settings: &Settings, cpu: &CPUInfo, mem: &MemInfo, graph: &mut Vec<f64>)
 {
 	let mut lines_printed = 19;
 
 	//CPU
 
 	//"x processes on x cores"
-	print_header(term, color, 57, String::from("CPU"));
-	print_highlighted(term, color, format!("{}", cpu.processes));
+	print_header(term, &settings, 57, String::from("CPU"));
+	print_highlighted(term, &settings, format!("{}", cpu.processes));
 	if cpu.processes > 1
 	{
 		let _ = write!(term, " active processes on ");	
@@ -151,17 +177,17 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 	{
 	   	let _ = write!(term, " active process on ");
 	}
-	print_highlighted(term, color, format!("{}", cpu.cores));
+	print_highlighted(term, &settings, format!("{}", cpu.cores));
 	let _ = writeln!(term, " cores      ");
 	let _ = writeln!(term, "");
 
 	//print bars
-	print_highlighted(term, color, String::from("TOTAL: "));
+	print_highlighted(term, &settings, String::from("TOTAL: "));
 	let total_percentage = calc_cpu_load_percentage(&cpu.total_load);
 	graph.push(total_percentage); //push new data
 	graph.remove(0); //dequeue old data
-	print_progress_bar(term, color, total_percentage, 40, color::RED);
-	print_highlighted(term, color, format!(" {} %   ", format_float(total_percentage)));
+	print_progress_bar(term, &settings, total_percentage, 40, color::RED);
+	print_highlighted(term, &settings, format!(" {} %   ", format_float(total_percentage)));
 	let _ = writeln!(term, "");
 	
 	let mut core_counter = 1;
@@ -169,7 +195,7 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 	{
 		let _ = write!(term, "CPU {}: ", core_counter);
 		let core_percentage = calc_cpu_load_percentage(&core_load);
-		print_progress_bar(term, color, core_percentage, 40, color::GREEN);
+		print_progress_bar(term, &settings, core_percentage, 40, color::GREEN);
 		let _ = write!(term, " {} %   ", format_float(core_percentage));
 		let _ = writeln!(term, "");
 		lines_printed += 1;
@@ -188,8 +214,8 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 		}
 		label.push('|');
 		let _ = write!(term, "{}", label);
-		colorize(term, color, color::CYAN);
-		attribute(term, color, Attr::Bold);
+		colorize(term, &settings, color::CYAN);
+		attribute(term, &settings, Attr::Bold);
 		for x in 0..51
 		{
 			let size = graph_sizes.get(x).unwrap();
@@ -206,38 +232,38 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 			    let _ = write!(term, ":");
 			}
 		}
-		reset(term, color);
+		reset(term, &settings);
 		let _ = writeln!(term, "");
 	}
 	let _ = writeln!(term, "");
 
 	//MEMORY
 
-	print_header(term, color, 57, String::from("MEMORY"));
+	print_header(term, &settings, 57, String::from("MEMORY"));
 	let _ = writeln!(term, "");
 
 	let memory_use: f64 = (mem.total - mem.free - mem.cached) as f64 / mem.total as f64;
 	let swap_use: f64 = (mem.swap_total - mem.swap_free) as f64 / mem.swap_total as f64;
 
 	let _ = write!(term, "  RAM: "); //RAM BAR
-	print_progress_bar(term, color, memory_use, 40, color::GREEN);
+	print_progress_bar(term, &settings, memory_use, 40, color::GREEN);
 	let _ = writeln!(term, "");
-	print_highlighted(term, color, format!("             {}", format_gib(mem.total - mem.free - mem.cached)));
+	print_highlighted(term, &settings, format!("             {}", format_gib(mem.total - mem.free - mem.cached)));
 	let _ = write!(term, " GiB / ");
-	print_highlighted(term, color, format!("{}", format_gib(mem.total)));
+	print_highlighted(term, &settings, format!("{}", format_gib(mem.total)));
 	let _ = write!(term, " GiB (");
-	print_highlighted(term, color, format!(" {}% ", format_float(memory_use)));
+	print_highlighted(term, &settings, format!(" {}% ", format_float(memory_use)));
 	let _ = write!(term, ")");
 	let _ = writeln!(term, "\n");
 
 	let _ = write!(term, " SWAP: "); //SWAP BAR
-	print_progress_bar(term, color, swap_use, 40, color::GREEN);
+	print_progress_bar(term, &settings, swap_use, 40, color::GREEN);
 	let _ = writeln!(term, "");
-	print_highlighted(term, color, format!("               {}", format_gib(mem.swap_used)));
+	print_highlighted(term, &settings, format!("               {}", format_gib(mem.swap_used)));
 	let _ = write!(term, " GiB / ");
-	print_highlighted(term, color, format!("{}", format_gib(mem.swap_total)));
+	print_highlighted(term, &settings, format!("{}", format_gib(mem.swap_total)));
 	let _ = write!(term, " GiB (");
-	print_highlighted(term, color, format!(" {}% ", format_float(swap_use)));
+	print_highlighted(term, &settings, format!(" {}% ", format_float(swap_use)));
 	let _ = write!(term, ")");
 	let _ = writeln!(term, "\n");
 
@@ -246,127 +272,4 @@ fn print(mut term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, colo
 	{
 		let _ = term.cursor_up();
 	}
-}
-
-//UI Objects
-
-fn print_progress_bar(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, enabled: bool, value: f64, size: usize, color: u16)
-{
-	let barsize = ((value * size as f64)) as usize;
-	let _ = write!(term, "[");
-	colorize(term, enabled, color);
-	attribute(term, enabled, Attr::Bold);
-	for i in 0..size
-	{
-		if i < barsize
-		{
-			let _ = write!(term, "=");
-		}
-		else 
-		{
-		 	let _ = write!(term, " ");   
-		}
-	}
-	reset(term, enabled);
-	let _ = write!(term, "]");
-}
-
-fn print_highlighted(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, content: String)
-{
-	colorize(term, color, color::CYAN);
-	attribute(term, color, Attr::Bold);
-	let _ = write!(term, "{}", content);
-	reset(term, color);
-}
-
-fn print_header(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, size: usize, name: String)
-{
-	let halfsize = (size - name.len() - 2) / 2;
-	let extend_first = halfsize * 2 + name.len() + 2 != size; //catch rounding errors
-	for _ in 0..halfsize
-	{
-		let _ = write!(term, "=");
-	}
-	if extend_first
-	{
-		let _ = write!(term, "=");
-	}
-	colorize(term, color, color::YELLOW);
-	attribute(term, color, Attr::Bold);
-	let _ = write!(term, " {} ", name);
-	reset(term, color);
-	for _ in 0..halfsize
-	{
-		let _ = write!(term, "=");
-	}
-	let _ = writeln!(term, "");
-}	
-
-//HELPER FUNCTIONS
-
-fn attribute(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, attrib: Attr)
-{
-	if color
-	{
-		let _ = term.attr(attrib);
-	}
-}
-
-fn reset(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool)
-{
-	if color
-	{
-		let _ = term.reset();
-	}
-}
-
-fn colorize(term: &mut Box<term::Terminal<Output=std::io::Stdout> + Send>, color: bool, color_code: u16)
-{
-	if color
-	{
-		let _ = term.fg(color_code);
-	}
-}
-
-fn format_float(float: f64) -> String
-{
-	let mut string = format!("{}", float*100.0);
-	if string.contains(".")
-	{
-		string = string.split_at(string.find(".").unwrap() + 2).0.to_owned();
-	}
-	string
-}
-
-//takes kilobytes, transforms to gibibytes and crops the result according to format_float()
-fn format_gib(kib: u64) -> String
-{
-	let gib = ((kib as f64 / 1024.0) / 1024.0) / 1024.0;
-
-	let mut string = format!("{}", gib);
-	if string.contains(".")
-	{
-		string = string.split_at(string.find(".").unwrap() + 2).0.to_owned();
-	}
-	string
-}
-
-fn calc_cpu_load_percentage(load: &CPULoad) -> f64
-{
-	let mut load_percentage: f64 = 0.0;
-	if load.busy != 0
-	{
-		load_percentage = load.busy as f64 / (load.idle + load.busy) as f64;
-	}
-	load_percentage
-}
-
-fn transform_to_graphsize(graph_data: &Vec<f64>) -> Vec<usize>
-{
-	let mut retval = Vec::new();
-	for data in graph_data
-	{
-		retval.push((data * 10.0) as usize);
-	}
-	retval
 }
