@@ -2,7 +2,7 @@
 name = "run-info"
 version = "0.4.0"
 authors = ["Matthias Drescher <matthias_p_drescher@t-online.com>"]
-description = "Monitor CPU and memory usage via terminal"
+description = "Monitor CPU and memory usage via terminal (Linux only)"
 repository = "https://github.com/mpdrescher/run-info"
 keywords = ["cpu", "cpu usage", "memory usage", "system monitor", "terminal"]
 license = "MIT"
