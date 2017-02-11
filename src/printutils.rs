@@ -1,5 +1,5 @@
-use ::term::{color, Attr, self};
-use ::Settings;
+use term::{color, Attr, self};
+use Settings;
 
 use std::io::Stdout;
 
@@ -23,9 +23,9 @@ pub fn print_progress_bar(term: &mut Box<term::Terminal<Output=Stdout> + Send>, 
 		{
 			let _ = write!(term, "=");
 		}
-		else 
+		else
 		{
-		 	let _ = write!(term, " ");   
+		 	let _ = write!(term, " ");
 		}
 	}
 	reset(term, settings);
@@ -61,7 +61,7 @@ pub fn print_header(term: &mut Box<term::Terminal<Output=Stdout> + Send>, settin
 		let _ = write!(term, "=");
 	}
 	let _ = writeln!(term, "");
-}	
+}
 
 //HELPER FUNCTIONS
 

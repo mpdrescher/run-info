@@ -56,7 +56,7 @@ impl CPUInfo
 				busy += info_vec.get(2).expect("missing cpu information").parse::<u64>().expect("incorrect cpu information format");//niced time
 				busy += info_vec.get(3).expect("missing cpu information").parse::<u64>().expect("incorrect cpu information format");//system time
 				idle += info_vec.get(4).expect("missing cpu information").parse::<u64>().expect("incorrect cpu information format");//idle time
-			
+
 				self.cores_load.push(CPULoad{
 					busy: busy,
 					idle: idle
@@ -65,7 +65,7 @@ impl CPUInfo
 			else if line.starts_with("procs_running")
 			{
 				//parsing the no. of processes (2nd entry in the "processes" line)
-			    self.processes = line.split_whitespace().nth(1) 
+			    self.processes = line.split_whitespace().nth(1)
 			    			.expect("incorrect cpu information format").to_owned().parse::<usize>().expect("expected a number (processes)");
 			}
 		}

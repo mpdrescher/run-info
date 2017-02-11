@@ -88,20 +88,20 @@ fn main_loop(settings: Settings)
 	let mut cpuinfo_new = CPUInfo::new();
 	let mut cpuinfo_delta = CPUInfo::new(); //The delta between the two time frames
 	let _ = cpuinfo_new.update();
-	
+
 	let mut cpu_graph: Vec<f64> = Vec::new();
 	for _ in 0..51
 	{
 		cpu_graph.push(0.0);
 	}
 
-	loop 
+	loop
 	{
 		match meminfo.update()  //we can just update the meminfo
 		{
 			Ok(_) => {},
 			Err(_) => {
-				println!("Error: Memory information is not available."); 
+				println!("Error: Memory information is not available.");
 				println!("Maybe you are not running this program on a Linux OS?");
 				break;}
 		};
@@ -124,7 +124,7 @@ fn main_loop(settings: Settings)
 		{
 			printer::print_log_mode(&mut term, &settings, &cpuinfo_delta, &meminfo);
 		}
-		else 
+		else
 		{
 			printer::print(&mut term, &settings, &cpuinfo_delta, &meminfo, &mut cpu_graph);
 		}

@@ -2,9 +2,9 @@
 Functions for printing output/layout
 */
 
-use ::Settings;
+use Settings;
 
-use ::term::{color, Attr, self};
+use term::{color, Attr, self};
 
 use meminfo::MemInfo;
 use cpuinfo::CPUInfo;
@@ -34,8 +34,8 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 	print_highlighted(term, &settings, format!("{}", cpu.processes));
 	if cpu.processes > 1
 	{
-		let _ = write!(term, " active processes on ");	
-	}else 
+		let _ = write!(term, " active processes on ");
+	}else
 	{
 	   	let _ = write!(term, " active process on ");
 	}
@@ -51,7 +51,7 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 	print_progress_bar(term, &settings, total_percentage, 40, color::RED);
 	print_highlighted(term, &settings, format!(" {} %   ", format_float(total_percentage)));
 	let _ = writeln!(term, "");
-	
+
 	let mut core_counter = 1;
 	for core_load in &cpu.cores_load
 	{
@@ -67,7 +67,7 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 
 	//print graph
 	if settings.enable_graph
-	{	
+	{
 		let graph_sizes = transform_to_graphsize(&graph);
 		for y in (0..5).rev()
 		{
@@ -91,7 +91,7 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 				{
 					let _ = write!(term, ".");
 				}
-				else 
+				else
 				{
 			    	let _ = write!(term, ":");
 				}
@@ -101,7 +101,7 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 		}
 		let _ = writeln!(term, "");
 	}
-	else 
+	else
 	{
 	    lines_printed -= 6;
 	}
@@ -146,20 +146,22 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 //a simpler version of print (-s flag)
 pub fn print_log_mode(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings, cpu: &CPUInfo, mem: &MemInfo)
 {
+	let seperator = "    ";
+
 	let time = ::time::now();
 	let timestamp = format!("{}m/{}d/{}y-{}h:{}m:{}s", time.tm_mon+1, time.tm_mday, time.tm_year+1900, time.tm_hour, time.tm_min, time.tm_sec);
 	let cpuload_string = format_float(calc_cpu_load_percentage(&cpu.total_load));
 	let mem_string = format_gib(mem.total - mem.free - mem.cached);
 	let swap_string = format_gib(mem.swap_used);
 
-	let _ = write!(term, "{}\t\tCPU:", timestamp);
-	print_highlighted(term, &settings, format!("{} %", cpuload_string));
-	let _ = write!(term, "\t\tRAM: ");
-	print_highlighted(term, &settings, format!("{} Gib", mem_string));
+	let _ = write!(term, "{}{}CPU:", timestamp, seperator);
+	print_highlighted(term, &settings, format!("{}%", cpuload_string));
+	let _ = write!(term, "{}RAM:", seperator);
+	print_highlighted(term, &settings, format!("{}Gib", mem_string));
 	if mem.swap_used != 0
 	{
-		let _ = write!(term, "\t\tSWAP: ");
-		print_highlighted(term, &settings, format!("{} Gib", swap_string));
+		let _ = write!(term, "{}SWAP:", seperator);
+		print_highlighted(term, &settings, format!("{}Gib", swap_string));
 	}
 
 	let _ = writeln!(term, "");
