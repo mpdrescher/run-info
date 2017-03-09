@@ -4,7 +4,7 @@ Monitor CPU and memory usage via terminal
 ![Screenshot](/run-info.png)
 
 # Build
-Run "cargo build --release" in the main directory.  
+Run `cargo build --release` in the main directory.  
 This program will only work on a Linux distribution!
 
 You can also install via `cargo install run-info`.  
