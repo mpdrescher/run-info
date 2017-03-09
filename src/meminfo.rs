@@ -7,8 +7,7 @@ use std::io::Result;
 Reads key/value pairs from /proc/meminfo
 */
 
-pub struct MemInfo
-{
+pub struct MemInfo {
 	pub total: u64,
 	pub free: u64,
 	pub cached: u64,
@@ -19,10 +18,8 @@ pub struct MemInfo
 	pub swap_used: u64
 }
 
-impl MemInfo
-{
-	pub fn new() -> MemInfo
-	{
+impl MemInfo {
+	pub fn new() -> MemInfo {
 		MemInfo {
 			total: 0,
 			free: 0,
@@ -35,8 +32,7 @@ impl MemInfo
 		}
 	}
 
-	pub fn update(&mut self) -> Result<()>
-	{
+	pub fn update(&mut self) -> Result<()> {
 		let map = try!(MemInfo::read_mem());
 
 		self.total = map.get("MemTotal:").expect("MemTotal not found").to_owned();
@@ -52,21 +48,17 @@ impl MemInfo
 	}
 
 	//parse stats in /proc/meminfo into a HashMap
-	fn read_mem() -> Result<HashMap<String, u64>>
-	{
+	fn read_mem() -> Result<HashMap<String, u64>> {
 		let plain = try!(read_file("/proc/meminfo"));
 		let mut mem_map = HashMap::new();
 
-		for line in plain.lines()
-		{
+		for line in plain.lines() {
 			let mut name = String::new();
 			let mut value: u64 = 0;
 
 			let mut col_count = 0;
-			for info in line.split_whitespace()
-			{
-				match col_count
-				{
+			for info in line.split_whitespace() {
+				match col_count {
 					0 => {name = info.to_owned();},
 					1 => {value = info.to_owned().parse::<u64>().expect("invalid value");},
 					2 => {value *= 1024},
@@ -82,8 +74,7 @@ impl MemInfo
 	}
 }
 
-fn read_file(location: &str) -> Result<String>
-{
+fn read_file(location: &str) -> Result<String> {
 	let mut file = try!(File::open(location));
 	let mut ret_val = String::new();
 	try!(file.read_to_string(&mut ret_val));
