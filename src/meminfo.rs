@@ -72,6 +72,14 @@ impl MemInfo {
 
 		Ok(mem_map)
 	}
+
+	pub fn memory_use(&self)-> f64 {
+		(self.total - self.free - self.cached) as f64 / self.total as f64
+	}
+
+	pub fn swap_use(&self) -> f64 {
+		(self.swap_total - self.swap_free) as f64 / self.swap_total as f64
+	}
 }
 
 fn read_file(location: &str) -> Result<String> {

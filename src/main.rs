@@ -1,5 +1,5 @@
 /*
-== run-info == (Matthias Drescher, 2016)
+== run-info == (Matthias Drescher, 2016/2017)
 
 This program shows the current cpu and memory load of the machine within a terminal UI.
 Since it depends on linux-specific system files, it will only run on a linux machine.
@@ -42,7 +42,7 @@ pub enum Mode {
 
 fn main() {
 	let matches = App::new("run-info")
-						.version("0.5")
+						.version("0.5.1")
 						.about("Shows current CPU and memory load")
 						.arg(Arg::with_name("delay")
 							.short("d")

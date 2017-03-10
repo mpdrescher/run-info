@@ -1,6 +1,6 @@
 [package]
 name = "run-info"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Matthias Drescher <matthias_p_drescher@t-online.com>"]
 description = "Monitor CPU and memory usage via terminal (Linux only)"
 repository = "https://github.com/mpdrescher/run-info"
