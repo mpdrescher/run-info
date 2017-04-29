@@ -1,3 +1,7 @@
+/*
+A collection of functions used for printing the data
+*/
+
 use term::{
     color,
     Attr,
@@ -9,15 +13,15 @@ use Settings;
 use std::io::Stdout;
 
 use cpuinfo::CPULoad;
-
-/*
-A collection of functions used for printing the data
-*/
+use graph::Graph;
 
 //UI Objects
 
+//print a progress bar ( -> [======      ] ),
+//where value ranges from 0.0 to 1.0 (panic otherwise)
 pub fn print_progress_bar(term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings,
                           value: f64, size: usize, color: u16) {
+    assert!(value >= 0.0 && value <= 1.0);
 	let barsize = ((value * size as f64)) as usize;
 	let _ = write!(term, "[");
 	colorize(term, settings, color);
@@ -60,6 +64,35 @@ pub fn print_header(term: &mut Box<term::Terminal<Output=Stdout> + Send>, settin
 		let _ = write!(term, "=");
 	}
 	let _ = writeln!(term, "");
+}
+
+pub fn print_graph(term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings, graph: &Graph) {
+    let graph_height_values = graph.height_values(10);
+    for y in (0..5).rev() {
+        let mut label = format!("{}%", y*25);
+        while label.len() < 5 {
+            label.push(' ');
+        }
+        label.push('|');
+        let _ = write!(term, "{}", label);
+        colorize(term, &settings, color::CYAN);
+        attribute(term, &settings, Attr::Bold);
+        for x in 0..graph_height_values.len() {
+            let size = graph_height_values[x];
+            if size < y*2 {
+                let _ = write!(term, " ");
+            }
+            else if size < y*2 +1 {
+                let _ = write!(term, ".");
+            }
+            else {
+                let _ = write!(term, ":");
+            }
+        }
+        reset(term, &settings);
+        let _ = writeln!(term, "");
+    }
+    let _ = writeln!(term, "");
 }
 
 //HELPER FUNCTIONS
@@ -114,12 +147,4 @@ pub fn calc_cpu_load_percentage(load: &CPULoad) -> f64 {
 		load_percentage = load.busy as f64 / (load.idle + load.busy) as f64;
 	}
 	load_percentage
-}
-
-pub fn transform_to_graphsize(graph_data: &Vec<f64>) -> Vec<usize> {
-	let mut retval = Vec::new();
-	for data in graph_data {
-		retval.push((data * 10.0) as usize);
-	}
-	retval
 }

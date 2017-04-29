@@ -17,14 +17,15 @@ extern crate time;
 use std::mem;
 use std::thread;
 
+mod graph;
 mod meminfo;
-use meminfo::MemInfo;
-
 mod cpuinfo;
-use cpuinfo::CPUInfo;
-
 mod printutils;
 mod printer;
+
+use cpuinfo::CPUInfo;
+use meminfo::MemInfo;
+use graph::Graph;
 
 //Holds CLAP arguments
 pub struct Settings {
@@ -71,17 +72,19 @@ fn main() {
 	let delay_str = matches.value_of("delay").unwrap_or("1500").to_owned();
 	let enable_color = matches.occurrences_of("no-color") == 0;
     let mut mode = Mode::Normal;
-    if  matches.occurrences_of("log-mode") != 0 {
+    if  matches.occurrences_of("log-mode") > 0 {
         mode = Mode::Log;
     }
-    if matches.occurrences_of("small-mode") != 0 {
+    if matches.occurrences_of("small-mode") > 0 {
         mode = Mode::Small;
     }
 	let enable_graph = matches.occurrences_of("no-graph") == 0;
-	let mut valid_delay = true;
 	let delay = match delay_str.parse::<usize>() {
 		Ok(v) => v,
-		Err(_) => {println!("Error: delay argument is not a number"); valid_delay = false; 0}
+		Err(_) => {
+            println!("error: delay argument is not a valid number.");
+            return;
+        }
 	};
 	let settings = Settings {
 		delay: delay,
@@ -89,32 +92,27 @@ fn main() {
 		enable_graph: enable_graph,
 	    mode: mode
 	};
-	if valid_delay {
-		main_loop(settings);
-	}
+	main_loop(settings);
 }
 
 #[allow(unused_assignments)]
 fn main_loop(settings: Settings) {
 	println!("");
-	let mut term = term::stdout().expect("term is not available");
+	let mut term = term::stdout().expect("term is not available.");
 	let mut meminfo = MemInfo::new();
 	let mut cpuinfo_old = CPUInfo::new();
 	let mut cpuinfo_new = CPUInfo::new();
 	let mut cpuinfo_delta = CPUInfo::new(); //The delta between the two time frames
 	let _ = cpuinfo_new.update();
 
-	let mut cpu_graph: Vec<f64> = Vec::new();
-	for _ in 0..51 {
-		cpu_graph.push(0.0);
-	}
+	let mut cpu_graph = Graph::new();
 
 	loop {
 		match meminfo.update() {  //we can just update the meminfo
 			Ok(_) => {},
 			Err(_) => {
-				println!("Error: Memory information is not available.");
-				println!("Maybe you are not running this program on a Linux OS?");
+				println!("error: Memory information is not available.");
+				println!("maybe you are not running this program on a Linux OS?");
 				break;}
 		};
 
@@ -124,8 +122,8 @@ fn main_loop(settings: Settings) {
 		match cpuinfo_new.update() {
 			Ok(_) => {},
 			Err(_) => {
-				println!("Error: CPU information is not available.");
-				println!("Maybe you are not running this program on a Linux OS?");
+				println!("error: CPU information is not available.");
+				println!("maybe you are not running this program on a Linux OS?");
 				break;
 			}
 		};

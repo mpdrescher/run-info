@@ -6,28 +6,18 @@ use Settings;
 
 use term::{
     color,
-    Attr,
     self
 };
 
 use meminfo::MemInfo;
 use cpuinfo::CPUInfo;
+use graph::Graph;
 
 use std::io::Stdout;
 
-use printutils::print_progress_bar as print_progress_bar;
-use printutils::print_highlighted as print_highlighted;
-use printutils::print_header as print_header;
-use printutils::attribute as attribute;
-use printutils::reset as reset;
-use printutils::colorize as colorize;
-use printutils::format_float as format_float;
-use printutils::format_gib as format_gib;
-use printutils::calc_cpu_load_percentage as calc_cpu_load_percentage;
-use printutils::transform_to_graphsize as transform_to_graphsize;
-use printutils::pad_string as pad_string;
+use printutils::*;
 
-//so I don't have to write pl!(); all the time
+//so I don't have to write "let _ = write!(..)" all the time
 macro_rules! p {
     ($t:expr, $($s:expr),+) => {
         let _ = write!($t, $($s),+);
@@ -42,7 +32,7 @@ macro_rules! pl {
 
 //normal mode
 pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings,
-             cpu: &CPUInfo, mem: &MemInfo, graph: &mut Vec<f64>) {
+             cpu: &CPUInfo, mem: &MemInfo, graph: &mut Graph) {
 	let mut lines_printed = 19;
 
 	//CPU
@@ -63,7 +53,6 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 	print_highlighted(term, &settings, String::from("TOTAL: "));
 	let total_percentage = calc_cpu_load_percentage(&cpu.total_load);
 	graph.push(total_percentage); //push new data
-	graph.remove(0); //dequeue old data
 	print_progress_bar(term, &settings, total_percentage, 40, color::RED);
 	print_highlighted(term, &settings, format!(" {} %   ", format_float(total_percentage)));
 	pl!(term, "");
@@ -82,32 +71,7 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 
 	//print graph
 	if settings.enable_graph {
-		let graph_sizes = transform_to_graphsize(&graph);
-		for y in (0..5).rev() {
-			let mut label = format!("{}%", y*25);
-			while label.len() < 5 {
-				label.push(' ');
-			}
-			label.push('|');
-			p!(term, "{}", label);
-			colorize(term, &settings, color::CYAN);
-			attribute(term, &settings, Attr::Bold);
-			for x in 0..51 {
-				let size = graph_sizes.get(x).unwrap();
-				if size < &(y*2) {
-					p!(term, " ");
-				}
-				else if size < &(y*2 +1) {
-					p!(term, ".");
-				}
-				else {
-			    	p!(term, ":");
-				}
-			}
-			reset(term, &settings);
-			pl!(term, "");
-		}
-		pl!(term, "");
+    	print_graph(&mut term, &settings, graph);
 	}
 	else {
 	    lines_printed -= 6;

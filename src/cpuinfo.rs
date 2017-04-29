@@ -1,11 +1,11 @@
-use std::fs::File;
-use std::io::Read;
-use std::io::Result;
-
 /*
 Read /proc/stat to get the cpu usage
 Calculate difference between two datasets to get momentary load
 */
+
+use std::fs::File;
+use std::io::Read;
+use std::io::Result;
 
 pub struct CPULoad {
 	pub busy: u64,
@@ -35,8 +35,8 @@ impl CPUInfo {
 
 		//filling out cores_load and processes
 		for line in plain.lines() {
-            //we only want core information for now 
-			if line.starts_with("cpu") && line.starts_with("cpu ") == false { 
+            //we only want core information for now
+			if line.starts_with("cpu") && line.starts_with("cpu ") == false {
 				//pushing all information within the line to a stack and getting the values by position
 				let mut info_vec = Vec::new();
 				for info in line.split_whitespace() {

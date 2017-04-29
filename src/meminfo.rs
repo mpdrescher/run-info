@@ -1,11 +1,11 @@
+/*
+Reads key/value pairs from /proc/meminfo
+*/
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::io::Result;
-
-/*
-Reads key/value pairs from /proc/meminfo
-*/
 
 pub struct MemInfo {
 	pub total: u64,
