@@ -115,56 +115,50 @@ pub fn print(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings:
 
 pub fn print_small_mode(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings,
                         cpu: &CPUInfo, mem: &MemInfo) {
-    let mut lines_printed = 9;
-
-    print_header(term, &settings, 28, "CPU:".to_owned());
-
+    let mut lines_printed = 4;
     //CPU
-
+	print_highlighted(term, &settings, format!("TOTAL: "));
+    let total_percentage = calc_cpu_load_percentage(&cpu.total_load);
+    print_progress_bar(term, &settings, total_percentage, 40, color::RED);
+    p!(term, " {} %   ", format_float(total_percentage));
     pl!(term, "");
-   	let cpuload_string = format_float(calc_cpu_load_percentage(&cpu.total_load));
-    print_highlighted(term, &settings, format!("{}%  \n", cpuload_string));
     let mut core_counter = 1;
     for core_load in &cpu.cores_load {
-		let core_percentage = calc_cpu_load_percentage(&core_load);
-		p!(term, "{}", &pad_string(format!("{}% ", format_float(core_percentage)), 7));
-        if core_counter == 4 {
-            pl!(term, "");
-            lines_printed += 1;
-        }
+        p!(term, "CPU {}: ", core_counter);
+        let core_percentage = calc_cpu_load_percentage(&core_load);
+        print_progress_bar(term, &settings, core_percentage, 40, color::GREEN);
+        p!(term, " {} %   ", format_float(core_percentage));
+        pl!(term, "");
+        lines_printed += 1;
         core_counter += 1;
-	}
+    }
     pl!(term, "");
-
-    //Memory
-
-    print_header(term, &settings, 28, "RAM:".to_owned());
-    pl!(term, "");
-
+    //MEM
 	let memory_use: f64 = mem.memory_use();
 	let swap_use: f64 = mem.swap_use();
-
-    print_highlighted(term, &settings, format_gib(mem.total - mem.free - mem.cached));
-    p!(term, " GiB ( ");
-    print_highlighted(term, &settings, format!("{}%", format_float(memory_use)));
-    p!(term, " ) + \n");
-    print_highlighted(term, &settings, format_gib(mem.swap_used));
-    p!(term, " GiB Swap ( ");
-    print_highlighted(term, &settings, format!("{}%", format_float(swap_use)));
-    p!(term, " )");
+    print_highlighted(term, &settings, format!("RAM:   "));
+    print_progress_bar(term, &settings, memory_use, 40, color::YELLOW);
+    p!(term, " {} %   ", format_float(memory_use));
     pl!(term, "");
-
+    if swap_use > 0.0 {
+        print_highlighted(term, &settings, format!("SWAP:  "));
+        print_progress_bar(term, &settings, swap_use, 40, color::RED);
+        p!(term, " {}   ", format_float(swap_use));
+        pl!(term, "");
+        lines_printed += 1;
+    }
     pl!(term, "");
+    
     for _ in 0..lines_printed {
         let _ = term.cursor_up();
     }
 }
 
-//a simpler version of print (-l flag)
+//a one-line version of print that can be used to log the data (-l flag)
 pub fn print_log_mode(mut term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings,
                       cpu: &CPUInfo, mem: &MemInfo) {
 	let seperator = "    ";
-
+    
 	let time = ::time::now();
 	let timestamp = format!("{}m/{}d/{}y-{}h:{}m:{}s",
          time.tm_mon+1, time.tm_mday, time.tm_year+1900, time.tm_hour, time.tm_min, time.tm_sec);
