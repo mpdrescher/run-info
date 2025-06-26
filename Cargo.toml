@@ -11,6 +11,6 @@ exclude = [
 ]
 
 [dependencies]
-term = "0.4.4"
+term = "1.0.2"
 clap = "2.11.0"
 time = "0.1.35"

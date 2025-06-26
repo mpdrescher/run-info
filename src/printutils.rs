@@ -20,7 +20,7 @@ use graph::Graph;
 //print a progress bar ( -> [======      ] ),
 //where value ranges from 0.0 to 1.0 (panic otherwise)
 pub fn print_progress_bar(term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings,
-                          value: f64, size: usize, color: u16) {
+                          value: f64, size: usize, color: u32) {
     assert!(value >= 0.0 && value <= 1.0);
 	let barsize = ((value * size as f64)) as usize;
 	let _ = write!(term, "[");
@@ -109,7 +109,7 @@ pub fn reset(term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Se
 	}
 }
 
-pub fn colorize(term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings, color_code: u16) {
+pub fn colorize(term: &mut Box<term::Terminal<Output=Stdout> + Send>, settings: &Settings, color_code: u32) {
 	if settings.enable_color {
 		let _ = term.fg(color_code);
 	}
